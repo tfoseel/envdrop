@@ -8,7 +8,7 @@ So you open the provider dashboard, revoke the key, make a new one, and update i
 
 The way around it is just as annoying:
 
-> **AI:** Please add `OPENAI_API_KEY` to `.env` and let me know when you're done.
+> **AI:** Please enter your key in `.env` yourself, save the file, and then tell me "done".
 > **You:** Can you open it in a text editor for me?
 > **AI:** *(opens a file containing `OPENAI_API_KEY=`)*
 > **You:** *(click, paste, ⌘S, switch back)* ok saved.

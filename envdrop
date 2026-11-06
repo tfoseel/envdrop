@@ -3,7 +3,6 @@
 
   envdrop ask [NAME...]   one window with a masked field per NAME; blocks until Save/Cancel.
                           No NAME: everything missing from .env.example (or left empty in .env).
-  envdrop install         add the protocol to ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md
 
 Output for the AI: where the values were saved + "use by reference, don't read". Exit 0 = all saved.
 Env: ENVDROP_FILE (default .env; any path works, e.g. a temp file).
@@ -151,30 +150,9 @@ def cmd_ask(names):
     return 0 if not skipped else 1
 
 
-PROTOCOL = """<!-- envdrop -->
-## Secrets
-Need an API key or secret? Don't ask me to edit .env or paste it in chat. Run `{exe} ask NAME...` with this project's exact variable names (no names = everything missing from .env.example), with a long timeout (10 min): it opens one input window and waits for me, then tells you where the values were saved. Use them by reference only; never read or print them.
-"""
-
-
-def cmd_install():
-    exe = shlex.quote(os.path.abspath(__file__))
-    for path in ("~/.claude/CLAUDE.md", "~/.codex/AGENTS.md"):
-        path = os.path.expanduser(path)
-        if os.path.exists(path) and "<!-- envdrop -->" in open(path).read():
-            print(f"already in {path}")
-            continue
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "a") as f:
-            f.write("\n" + PROTOCOL.format(exe=exe))
-        print(f"added to {path}")
-
-
 if __name__ == "__main__":
     cmd, args = (sys.argv[1:2] or [""])[0], sys.argv[2:]
     if cmd == "ask":
         sys.exit(cmd_ask(args))
-    if cmd == "install":
-        sys.exit(cmd_install())
     print(__doc__)
     sys.exit(2)

@@ -1,22 +1,34 @@
 # envdrop
 
+**English** · [한국어](README.ko.md)
+
 **Stop pasting API keys into AI chat.** One input window: your coding agent waits, the key goes into `.env`, and the AI never sees it.
 
 > ⚠️ *"Your API key was exposed in this conversation. Please rotate it immediately."*
 
 ## Before
 
-You're building with Claude Code or Codex and it needs a key, so you paste it in chat. Right after, the agent tells you the key leaked. You open the provider dashboard, revoke it, generate a new one, and update it everywhere. Next feature, next key, same warning.
+You've seen this a hundred times.
 
-The safe way is just as annoying:
+> **You:** add OpenAI to the app
+> **AI:** Sure! I'll need your `OPENAI_API_KEY`.
+> **You:** sk-proj-8fK2...
+> **AI:** ⚠️ **Your API key was exposed in this conversation. Please rotate it immediately.**
+> **You:** …you're the one who asked for it
+> **AI:** I understand the frustration! For security, please never share secrets in chat. Instead, open `.env` yourself, paste your key, save the file, and then tell me "done".
+> **You:** *(opens OpenAI dashboard, revokes key, creates new key, copies it)*
+> **You:** can you at least open the file for me
+> **AI:** *(opens `.env` in TextEdit)*
+> **You:** *(clicks, pastes, ⌘S, ⌘Tab back)* done
+> **AI:** Thanks! Now I'll also need `SUPABASE_URL` and `SUPABASE_ANON_KEY`. Please open `.env`, add them, save, and tell me "done".
+> **You:** 🙃
 
-> **AI:** Please enter your key in `.env` yourself, save the file, and then tell me "done".
-> **You:** Can you open it in a text editor for me?
-> **AI:** *(opens a file containing `OPENAI_API_KEY=`)*
-> **You:** *(click, paste, ⌘S, switch back)* ok, done.
-> **AI:** Great! Now please add `SUPABASE_URL`…
+Then the next feature needs a Stripe key, and you go through it again.
 
-That's four messages and a window switch for every key.
+You end up with either:
+
+- **a leaked key** that has to be rotated, or
+- **a four-message round-trip** for every key: open the editor, paste, save, switch windows, and type "done" to a program that could have just waited.
 
 ## After
 
@@ -39,20 +51,19 @@ AI   ← saved OPENAI_API_KEY, SUPABASE_URL to /proj/.env (mode 600).
 
 ## Install (30 seconds)
 
-```bash
-git clone https://github.com/tfoseel/envdrop ~/.envdrop
-```
+envdrop is an [Agent Skill](https://agentskills.io). Clone it once, and both Codex and Claude Code pick it up:
 
 ```bash
-~/.envdrop/envdrop install
+git clone https://github.com/tfoseel/envdrop ~/.agents/skills/envdrop
 ```
 
-`install` adds one short note to `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`, telling your agent to use `envdrop ask` instead of asking you to paste keys. It's safe to run twice. If you'd rather add the note yourself:
-
-```md
-## Secrets
-Need an API key or secret? Don't ask me to edit .env or paste it in chat. Run `~/.envdrop/envdrop ask NAME...` with this project's exact variable names (no names = everything missing from .env.example), with a long timeout (10 min): it opens one input window and waits for me, then tells you where the values were saved. Use them by reference only; never read or print them.
+```bash
+ln -s ~/.agents/skills/envdrop ~/.claude/skills/envdrop
 ```
+
+Codex reads `~/.agents/skills`, and Claude Code reads `~/.claude/skills` (the symlink). Nothing gets added to your CLAUDE.md or AGENTS.md. The agent loads the skill only when it needs a secret, and then uses `envdrop ask` instead of asking you to paste the key.
+
+Using a different agent? Run `python3 ~/.agents/skills/envdrop/envdrop ask NAME...` yourself, or tell your agent to.
 
 ## Details
 

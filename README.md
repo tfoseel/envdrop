@@ -33,13 +33,11 @@ And it isn't made up. Here's a real message from Codex:
 
 So you open Keychain Access, find "New Password Item", type a service name you'll never remember, paste, save, switch back, and type "done", for one key.
 
-Some chat apps now hide pasted keys. That's worse:
+Some chat apps now mask a pasted key on screen. It doesn't help:
 
-> **You:** Let's build a chat app with Gemini. Key: `AIzaSyFA•••••••••••••••••••••••••••••••`
-> **AI:** Project folder created. Writing the server and UI.
-> **AI:** Google rejected this key too with `API_KEY_INVALID`. I'll keep building; just swap the key in `.env`.
+![The key shows as AIzaSyDk•••• in the input, the AI calls Gemini with it successfully, then warns the key was exposed in chat](docs/masked-key.png)
 
-The key was fine. The app hid it before the AI saw it, so the AI called Google with a string of `•` and blamed your key. Now you're back to editing `.env` by hand.
+The input shows `AIzaSyDk••••`, and it looks safe. But the model got the whole key, called Gemini with it, and then told you it leaked and should be rotated. The dots only hide the key from you.
 
 Then the next feature needs a Stripe key, and you go through it again.
 

@@ -1,0 +1,180 @@
+#!/usr/bin/env python3
+"""envdrop: give secrets to .env through one input window. The AI only waits; it never sees the values.
+
+  envdrop ask [NAME...]   one window with a masked field per NAME; blocks until Save/Cancel.
+                          No NAME: everything missing from .env.example (or left empty in .env).
+  envdrop install         add the protocol to ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md
+
+Output for the AI: where the values were saved + "use by reference, don't read". Exit 0 = all saved.
+Env: ENVDROP_FILE (default .env; any path works, e.g. a temp file).
+"""
+import json, os, re, shlex, subprocess, sys
+
+ENV_LINE = re.compile(r"""^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*("[^"]*"|'[^']*'|\S*)\s*(?:#.*)?$""")
+EXAMPLES = (".env.example", ".env.sample", ".env.template", ".env.dist")
+
+# macOS window: native NSAlert with one NSSecureTextField per key, via JXA (no dependencies).
+JXA = r"""
+ObjC.import('Cocoa');
+function run(argv) {
+  const where = argv[0], names = argv.slice(1);
+  const app = $.NSApplication.sharedApplication;
+  app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
+  // Edit menu, or Cmd+V / Cmd+A do nothing in a menu-less process.
+  const bar = $.NSMenu.new, appItem = $.NSMenuItem.new, editItem = $.NSMenuItem.new;
+  const edit = $.NSMenu.alloc.initWithTitle('Edit');
+  [['Undo','undo:','z'],['Cut','cut:','x'],['Copy','copy:','c'],['Paste','paste:','v'],['Select All','selectAll:','a']]
+    .forEach(([t, a, k]) => edit.addItemWithTitleActionKeyEquivalent(t, a, k));
+  appItem.submenu = $.NSMenu.new; editItem.submenu = edit;
+  bar.addItem(appItem); bar.addItem(editItem); app.mainMenu = bar;
+
+  const W = 340, H = 24, ROW = 52;
+  const view = $.NSView.alloc.initWithFrame($.NSMakeRect(0, 0, W, names.length * ROW));
+  const fields = names.map((n, i) => {
+    const y = (names.length - 1 - i) * ROW;
+    const label = $.NSTextField.labelWithString(n);
+    label.frame = $.NSMakeRect(0, y + H + 2, W, 18);
+    const f = $.NSSecureTextField.alloc.initWithFrame($.NSMakeRect(0, y + 2, W, H));
+    view.addSubview(label); view.addSubview(f);
+    return f;
+  });
+  fields.forEach((f, i) => { if (i + 1 < fields.length) f.nextKeyView = fields[i + 1]; });
+  const alert = $.NSAlert.new;
+  alert.messageText = 'envdrop';
+  alert.informativeText = 'Paste values. Saved to ' + where + '. The AI never sees them.';
+  alert.addButtonWithTitle('Save'); alert.addButtonWithTitle('Cancel');
+  alert.accessoryView = view;
+  alert.layout;
+  alert.window.initialFirstResponder = fields[0];
+  app.activateIgnoringOtherApps(true);
+  if (alert.runModal != 1000) return '';  // 1000 = first button (Save)
+  const out = {};
+  names.forEach((n, i) => { out[n] = fields[i].stringValue.js; });
+  return JSON.stringify(out);
+}
+"""
+
+
+def unquote(v):
+    return v[1:-1] if len(v) >= 2 and v[0] == v[-1] and v[0] in "'\"" else v
+
+
+def read_env(path):
+    out = {}
+    if os.path.exists(path):
+        for l in open(path).read().splitlines():
+            if m := ENV_LINE.match(l):
+                out[m.group(1)] = unquote(m.group(2))
+    return out
+
+
+def env_path(cwd):
+    p = os.environ.get("ENVDROP_FILE", ".env")
+    return p if os.path.isabs(p) else os.path.join(cwd, p)
+
+
+def missing(cwd):
+    """Keys the project declares (.env.example etc., or `NAME=` left empty in .env) with no value yet."""
+    have = read_env(env_path(cwd))
+    declared = list(have)
+    for f in EXAMPLES:
+        declared += read_env(os.path.join(cwd, f))
+    return list(dict.fromkeys(k for k in declared if not have.get(k)))
+
+
+def upsert(path, items):
+    lines = open(path).read().splitlines() if os.path.exists(path) else []
+    for k, v in items.items():
+        new = f"{k}={json.dumps(v) if re.search(r'''[\s#'"$\\]''', v) else v}"
+        idx = next((i for i, l in enumerate(lines) if (m := ENV_LINE.match(l)) and m.group(1) == k), None)
+        if idx is None:
+            lines.append(new)
+        else:
+            lines[idx] = new
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    os.chmod(path, 0o600)
+    gitignore(path)
+
+
+def gitignore(path):
+    """Add the env file to .gitignore if we're in a git repo and it isn't ignored yet."""
+    d, name = os.path.split(os.path.abspath(path))
+    if subprocess.run(["git", "-C", d, "rev-parse"], capture_output=True).returncode:
+        return
+    if subprocess.run(["git", "-C", d, "check-ignore", "-q", name]).returncode == 0:
+        return
+    gi = os.path.join(d, ".gitignore")
+    sep = "\n" if os.path.exists(gi) and os.path.getsize(gi) and not open(gi).read().endswith("\n") else ""
+    with open(gi, "a") as f:
+        f.write(f"{sep}{name}\n")
+
+
+def window(names, where):
+    """Show one input window for all names. Returns {NAME: value} or None if cancelled."""
+    if sys.platform == "darwin":
+        r = subprocess.run(["osascript", "-l", "JavaScript", "-e", JXA, where, *names],
+                           capture_output=True, text=True)
+        return json.loads(r.stdout) if r.returncode == 0 and r.stdout.strip() else None
+    # Linux: zenity --forms, one password field per key.
+    sep = "\x1f"
+    r = subprocess.run(["zenity", "--forms", "--title", "envdrop", "--text", f"Saved to {where}",
+                        f"--separator={sep}", *[f"--add-password={n}" for n in names]],
+                       capture_output=True, text=True)
+    return dict(zip(names, r.stdout.rstrip("\n").split(sep))) if r.returncode == 0 else None
+
+
+def cmd_ask(names):
+    cwd = os.getcwd()
+    path = env_path(cwd)
+    names = list(dict.fromkeys(names)) or missing(cwd)
+    if not names:
+        print("nothing missing")
+        return 0
+    got = window(names, os.path.relpath(path))
+    if got is None:
+        print("cancelled")
+        return 1
+    got = {k: v.strip() for k, v in got.items() if v.strip()}
+    skipped = [n for n in names if n not in got]
+    if not got:
+        print("nothing entered")
+        return 1
+    upsert(path, got)
+    q = shlex.quote(os.path.abspath(path))
+    # This text is what the AI sees: where the values are and how to use them blind.
+    print(f"envdrop: saved {', '.join(got)} to {os.path.abspath(path)} (mode 600)."
+          + (f" Skipped: {', '.join(skipped)}." if skipped else ""))
+    print(f"Do not read, cat, grep or print this file. Use the values by reference: "
+          f"let the app load it, or `set -a; . {q}; set +a; <command>`.")
+    return 0 if not skipped else 1
+
+
+PROTOCOL = """<!-- envdrop -->
+## Secrets
+Need an API key or secret? Don't ask me to edit .env or paste it in chat. Run `{exe} ask NAME...` with this project's exact variable names (no names = everything missing from .env.example), with a long timeout (10 min): it opens one input window and waits for me, then tells you where the values were saved. Use them by reference only; never read or print them.
+"""
+
+
+def cmd_install():
+    exe = shlex.quote(os.path.abspath(__file__))
+    for path in ("~/.claude/CLAUDE.md", "~/.codex/AGENTS.md"):
+        path = os.path.expanduser(path)
+        if os.path.exists(path) and "<!-- envdrop -->" in open(path).read():
+            print(f"already in {path}")
+            continue
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a") as f:
+            f.write("\n" + PROTOCOL.format(exe=exe))
+        print(f"added to {path}")
+
+
+if __name__ == "__main__":
+    cmd, args = (sys.argv[1:2] or [""])[0], sys.argv[2:]
+    if cmd == "ask":
+        sys.exit(cmd_ask(args))
+    if cmd == "install":
+        sys.exit(cmd_install())
+    print(__doc__)
+    sys.exit(2)

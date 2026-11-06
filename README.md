@@ -39,6 +39,12 @@ Some chat apps now mask a pasted key on screen. It doesn't help:
 
 The input shows `AIzaSyDk••••`, and it looks safe. But the model got the whole key, called Gemini with it, and then told you it leaked and should be rotated. The dots only hide the key from you.
 
+Codex doesn't even mask it:
+
+![Codex: the key pasted in plain text, Codex confirms it works, then says it was exposed in chat and should be revoked (key redacted for this README)](docs/codex-plain-key.png)
+
+It confirms the key works, then tells you to revoke it in the same reply.
+
 Then the next feature needs a Stripe key, and you go through it again.
 
 You end up with either:

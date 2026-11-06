@@ -23,6 +23,16 @@ You've seen this a hundred times.
 > **AI:** Thanks! Now I'll also need `SUPABASE_URL` and `SUPABASE_ANON_KEY`. Please open `.env`, add them, save, and tell me "done".
 > **You:** 🙃
 
+And it isn't made up. Here's a real message from Codex:
+
+> Ready to run locally once it can read the key.
+>
+> 1. Get an API key from the TypeSafe console.
+> 2. Open **Keychain Access** on your Mac and add a new password item to the login keychain. Name: `codex.typesafe.jev`, account: `jev`, password: the key you got.
+> 3. Don't put the key in chat. Just tell me **"done."**
+
+So you open Keychain Access, find "New Password Item", type a service name you'll never remember, paste, save, switch back, and type "done", for one key.
+
 Then the next feature needs a Stripe key, and you go through it again.
 
 You end up with either:

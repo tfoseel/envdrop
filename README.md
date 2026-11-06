@@ -33,6 +33,14 @@ And it isn't made up. Here's a real message from Codex:
 
 So you open Keychain Access, find "New Password Item", type a service name you'll never remember, paste, save, switch back, and type "done", for one key.
 
+Some chat apps now hide pasted keys. That's worse:
+
+> **You:** Let's build a chat app with Gemini. Key: `AIzaSyFA•••••••••••••••••••••••••••••••`
+> **AI:** Project folder created. Writing the server and UI.
+> **AI:** Google rejected this key too with `API_KEY_INVALID`. I'll keep building; just swap the key in `.env`.
+
+The key was fine. The app hid it before the AI saw it, so the AI called Google with a string of `•` and blamed your key. Now you're back to editing `.env` by hand.
+
 Then the next feature needs a Stripe key, and you go through it again.
 
 You end up with either:

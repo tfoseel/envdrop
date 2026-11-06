@@ -1,22 +1,24 @@
 # envdrop
 
+**Stop pasting API keys into AI chat.** One input window: your coding agent waits, the key goes into `.env`, and the AI never sees it.
+
 > ⚠️ *"Your API key was exposed in this conversation. Please rotate it immediately."*
 
-You know this one. You're in the middle of building something with Claude Code or Codex, it needs a key, so you paste it in chat. The agent gets to work, and right after says your key leaked and you should rotate it.
+## Before
 
-So you open the provider dashboard, revoke the key, make a new one, and update it everywhere it was used. Next feature, next key, same message.
+You're building with Claude Code or Codex and it needs a key, so you paste it in chat. Right after, the agent tells you the key leaked. You open the provider dashboard, revoke it, generate a new one, and update it everywhere. Next feature, next key, same warning.
 
-The way around it is just as annoying:
+The safe way is just as annoying:
 
 > **AI:** Please enter your key in `.env` yourself, save the file, and then tell me "done".
 > **You:** Can you open it in a text editor for me?
 > **AI:** *(opens a file containing `OPENAI_API_KEY=`)*
-> **You:** *(click, paste, ⌘S, switch back)* ok saved.
+> **You:** *(click, paste, ⌘S, switch back)* ok, done.
 > **AI:** Great! Now please add `SUPABASE_URL`…
 
-That's four messages and a window switch for every key, all to avoid typing it where the AI can see it.
+That's four messages and a window switch for every key.
 
-## envdrop: one window, and the agent waits
+## After
 
 ```
 AI   → envdrop ask OPENAI_API_KEY SUPABASE_URL
@@ -30,11 +32,10 @@ AI   ← saved OPENAI_API_KEY, SUPABASE_URL to /proj/.env (mode 600).
        Do not read or print this file. Use the values by reference.
 ```
 
-- The values never go through chat, so you never get the rotate warning.
-- You don't open an editor, save a file, or type "done". The agent is waiting on the window and continues as soon as you click Save.
-- Key names come from the project: the agent passes the names the code uses. Run `envdrop ask` with no names to ask for every key in `.env.example` that's still missing.
-
-It's one Python file with no dependencies, and it works with Claude Code, Codex, or any agent that can run a shell command.
+- **No leak, no rotation.** The values never go through chat.
+- **No "done".** You don't open an editor or save a file. The agent is waiting on the window and continues as soon as you click Save.
+- **Names come from your project.** The agent passes the names the code uses. Run `envdrop ask` with no names to ask for every key in `.env.example` that's still missing.
+- **Small.** One Python file, no dependencies. Works with Claude Code, Codex, or any agent that can run a shell command.
 
 ## Install (30 seconds)
 
